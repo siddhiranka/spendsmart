@@ -16,39 +16,39 @@ const Income = () => {
     const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
 
     useEffect(() => {
-        const storedIncome = JSON.parse(localStorage.getItem('mock_income'));
-        if (storedIncome && storedIncome.length > 0) {
-            setIncome(storedIncome);
-        } else if (storedIncome) {
-            setIncome([]);
-        } else {
-            const initialMock = [];
-            setIncome(initialMock);
-            localStorage.setItem('mock_income', JSON.stringify(initialMock));
-        }
-        
-        api.get('/income').then(res => {
-            if(res.data?.data && res.data.data.length > 0) {
-                setIncome(res.data.data);
-                localStorage.setItem('mock_income', JSON.stringify(res.data.data));
+        const fetchIncome = async () => {
+            try {
+                const res = await api.get('/income');
+                if (res.data?.data) {
+                    setIncome(res.data.data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch income', err);
             }
-        }).catch(err => console.log('DB not connected yet.'));
+        };
+        fetchIncome();
     }, []);
 
-    const handleAddIncome = (e) => {
+    const handleAddIncome = async (e) => {
         e.preventDefault();
-        const newIncome = { ...formData, id: Date.now(), amount: parseFloat(formData.amount) };
-        const updated = [newIncome, ...income];
-        setIncome(updated);
-        localStorage.setItem('mock_income', JSON.stringify(updated));
-        setIsModalOpen(false);
-        setFormData({ source: '', amount: '', date: '', notes: '' });
+        try {
+            const res = await api.post('/income', formData);
+            const newIncome = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
+            setIncome([newIncome, ...income]);
+            setIsModalOpen(false);
+            setFormData({ source: '', amount: '', date: '', notes: '' });
+        } catch (error) {
+            console.error('Failed to add income', error);
+        }
     };
 
-    const handleDelete = (id) => {
-        const updated = income.filter(inc => inc.id !== id);
-        setIncome(updated);
-        localStorage.setItem('mock_income', JSON.stringify(updated));
+    const handleDelete = async (id) => {
+        try {
+            await api.delete(`/income/${id}`);
+            setIncome(income.filter(inc => inc.id !== id));
+        } catch (error) {
+            console.error('Failed to delete income', error);
+        }
     };
 
     const handleSearchChange = (e) => {

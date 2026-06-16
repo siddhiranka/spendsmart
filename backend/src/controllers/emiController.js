@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const { getDB } = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addEMI = async (req, res) => {
@@ -9,12 +9,13 @@ exports.addEMI = async (req, res) => {
             return errorResponse(res, 400, 'Please provide all EMI fields');
         }
 
-        const [result] = await pool.query(
+        const db = await getDB();
+        const result = await db.run(
             'INSERT INTO emi (user_id, loan_name, principal, interest, tenure, start_date) VALUES (?, ?, ?, ?, ?, ?)',
             [req.user.id, loan_name, principal, interest, tenure, start_date]
         );
 
-        return successResponse(res, 201, 'EMI added successfully', { id: result.insertId });
+        return successResponse(res, 201, 'EMI added successfully', { id: result.lastID });
     } catch (error) {
         console.error('Add EMI Error:', error);
         return errorResponse(res, 500, 'Server error while adding EMI');
@@ -23,7 +24,8 @@ exports.addEMI = async (req, res) => {
 
 exports.getEMIs = async (req, res) => {
     try {
-        const [emis] = await pool.query('SELECT * FROM emi WHERE user_id = ?', [req.user.id]);
+        const db = await getDB();
+        const emis = await db.all('SELECT * FROM emi WHERE user_id = ?', [req.user.id]);
         
         // Calculate EMI mathematically here if needed, or simply return data
         const calculatedEMIs = emis.map(emi => {
@@ -47,9 +49,10 @@ exports.getEMIs = async (req, res) => {
 exports.deleteEMI = async (req, res) => {
     try {
         const { id } = req.params;
-        const [result] = await pool.query('DELETE FROM emi WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const db = await getDB();
+        const result = await db.run('DELETE FROM emi WHERE id = ? AND user_id = ?', [id, req.user.id]);
 
-        if (result.affectedRows === 0) {
+        if (result.changes === 0) {
             return errorResponse(res, 404, 'EMI not found or unauthorized');
         }
 

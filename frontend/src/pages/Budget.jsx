@@ -4,40 +4,71 @@ import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { AlertTriangle, Calculator } from 'lucide-react';
 import { CurrencyContext } from '../context/CurrencyContext';
+import api from '../services/api';
 
 const COLORS = ['#ef4444', '#f59e0b', '#10b981']; // Needs, Wants, Savings
 
 const Budget = () => {
     const { currency } = useContext(CurrencyContext);
-    const [income, setIncome] = useState(() => {
-        const saved = localStorage.getItem('mock_budget_income');
-        return saved ? parseFloat(saved) : 5000;
-    });
-    
-    const [budgetData, setBudgetData] = useState(() => {
-        const saved = localStorage.getItem('mock_budget_data');
-        if (saved) return JSON.parse(saved);
-        return [];
-    });
+    const [income, setIncome] = useState(5000);
+    const [budgetData, setBudgetData] = useState([]);
+    const [emis, setEmis] = useState([]);
 
-    const [emis, setEmis] = useState(() => {
-        const saved = localStorage.getItem('mock_emis');
-        if (saved) return JSON.parse(saved);
-        return [];
-    });
+    useEffect(() => {
+        const fetchBudgetAndEmis = async () => {
+            try {
+                const date = new Date();
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                
+                const [budgetRes, emiRes] = await Promise.all([
+                    api.get(`/budgets?month=${month}&year=${year}`),
+                    api.get('/emi')
+                ]);
+
+                if (budgetRes.data?.data) {
+                    const b = budgetRes.data.data;
+                    setIncome(b.income);
+                    setBudgetData([
+                        { name: 'Needs (50%)', value: b.needs_limit, used: 0 },
+                        { name: 'Wants (30%)', value: b.wants_limit, used: 0 },
+                        { name: 'Savings (20%)', value: b.savings_limit, used: 0 },
+                    ]);
+                }
+                
+                if (emiRes.data?.data) {
+                    setEmis(emiRes.data.data.map(e => ({
+                        id: e.id, name: e.loan_name, principal: e.principal, rate: e.interest, tenure: e.tenure, emi: e.emiAmount
+                    })));
+                }
+            } catch (err) {
+                console.error('Error fetching budget/emis', err);
+            }
+        };
+        fetchBudgetAndEmis();
+    }, []);
 
     const [emiForm, setEmiForm] = useState({ name: '', principal: '', rate: '', tenure: '' });
 
-    const handleCalculate = (e) => {
+    const handleCalculate = async (e) => {
         e.preventDefault();
-        const newData = [
-            { name: 'Needs (50%)', value: income * 0.5, used: 0 },
-            { name: 'Wants (30%)', value: income * 0.3, used: 0 },
-            { name: 'Savings (20%)', value: income * 0.2, used: 0 },
-        ];
-        setBudgetData(newData);
-        localStorage.setItem('mock_budget_income', income.toString());
-        localStorage.setItem('mock_budget_data', JSON.stringify(newData));
+        const date = new Date();
+        try {
+            await api.post('/budgets', {
+                month: date.getMonth() + 1,
+                year: date.getFullYear(),
+                income: income,
+                savings_target: income * 0.2
+            });
+            const newData = [
+                { name: 'Needs (50%)', value: income * 0.5, used: 0 },
+                { name: 'Wants (30%)', value: income * 0.3, used: 0 },
+                { name: 'Savings (20%)', value: income * 0.2, used: 0 },
+            ];
+            setBudgetData(newData);
+        } catch (err) {
+            console.error('Error setting budget', err);
+        }
     };
 
     const calculateEmi = (p, r, n) => {
@@ -46,26 +77,36 @@ const Budget = () => {
         return emi || 0;
     };
 
-    const handleAddEmi = (e) => {
+    const handleAddEmi = async (e) => {
         e.preventDefault();
         const p = parseFloat(emiForm.principal);
         const r = parseFloat(emiForm.rate);
         const n = parseInt(emiForm.tenure);
-        const emiAmt = calculateEmi(p, r, n);
 
-        const newEmi = {
-            id: Date.now(),
-            name: emiForm.name,
-            principal: p,
-            rate: r,
-            tenure: n,
-            emi: emiAmt
-        };
+        try {
+            const res = await api.post('/emi', {
+                loan_name: emiForm.name,
+                principal: p,
+                interest: r,
+                tenure: n,
+                start_date: new Date().toISOString().split('T')[0]
+            });
+            
+            const emiAmt = calculateEmi(p, r, n);
+            const newEmi = {
+                id: res.data.data.id,
+                name: emiForm.name,
+                principal: p,
+                rate: r,
+                tenure: n,
+                emi: emiAmt
+            };
 
-        const updatedEmis = [...emis, newEmi];
-        setEmis(updatedEmis);
-        localStorage.setItem('mock_emis', JSON.stringify(updatedEmis));
-        setEmiForm({ name: '', principal: '', rate: '', tenure: '' });
+            setEmis([...emis, newEmi]);
+            setEmiForm({ name: '', principal: '', rate: '', tenure: '' });
+        } catch (err) {
+            console.error('Error adding EMI', err);
+        }
     };
 
     const totalEmi = emis.reduce((sum, item) => sum + item.emi, 0);
@@ -193,10 +234,13 @@ const Budget = () => {
                                     <div className="text-right flex flex-col items-end">
                                         <p className="font-bold text-[var(--text-color)]">{currency.symbol}{loan.emi.toFixed(2)}</p>
                                         <button 
-                                            onClick={() => {
-                                                const newEmis = emis.filter(e => e.id !== loan.id);
-                                                setEmis(newEmis);
-                                                localStorage.setItem('mock_emis', JSON.stringify(newEmis));
+                                            onClick={async () => {
+                                                try {
+                                                    await api.delete(`/emi/${loan.id}`);
+                                                    setEmis(emis.filter(e => e.id !== loan.id));
+                                                } catch (err) {
+                                                    console.error('Error deleting EMI', err);
+                                                }
                                             }}
                                             className="text-xs text-red-500 hover:underline mt-1"
                                         >

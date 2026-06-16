@@ -1,15 +1,32 @@
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
+const fs = require('fs');
+const path = require('path');
 
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'spendsmart',
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+let dbInstance = null;
 
-module.exports = pool;
+async function getDB() {
+    if (dbInstance) return dbInstance;
+
+    dbInstance = await open({
+        filename: path.join(__dirname, '../../database.sqlite'),
+        driver: sqlite3.Database
+    });
+
+    // Enable foreign keys
+    await dbInstance.exec('PRAGMA foreign_keys = ON;');
+
+    // Execute Schema
+    const schemaPath = path.join(__dirname, '../database/schema.sql');
+    if (fs.existsSync(schemaPath)) {
+        const schema = fs.readFileSync(schemaPath, 'utf8');
+        await dbInstance.exec(schema);
+        console.log('Database schema applied successfully.');
+    } else {
+        console.warn('schema.sql not found at', schemaPath);
+    }
+
+    return dbInstance;
+}
+
+module.exports = { getDB };

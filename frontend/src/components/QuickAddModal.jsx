@@ -2,30 +2,36 @@ import React, { useState, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { CurrencyContext } from '../context/CurrencyContext';
+import api from '../services/api';
 
 const QuickAddModal = ({ isOpen, onClose }) => {
     const { currency } = useContext(CurrencyContext);
     const [formData, setFormData] = useState({ title: '', amount: '', category: 'General', type: 'expense' });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const newItem = { 
-            id: Date.now(), 
+        const endpoint = formData.type === 'expense' ? '/expenses' : '/income';
+        const payload = formData.type === 'expense' ? {
             title: formData.title,
             amount: parseFloat(formData.amount),
             category: formData.category,
             date: new Date().toISOString().split('T')[0],
             payment_method: 'Cash'
+        } : {
+            source: formData.title,
+            amount: parseFloat(formData.amount),
+            date: new Date().toISOString().split('T')[0],
+            notes: formData.category
         };
 
-        const key = formData.type === 'expense' ? 'mock_expenses' : 'mock_income';
-        const existing = JSON.parse(localStorage.getItem(key) || '[]');
-        localStorage.setItem(key, JSON.stringify([newItem, ...existing]));
-        
-        onClose();
-        setFormData({ title: '', amount: '', category: 'General', type: 'expense' });
-        // Optional: trigger a window reload or custom event so Dashboard updates
-        window.dispatchEvent(new Event('storage'));
+        try {
+            await api.post(endpoint, payload);
+            onClose();
+            setFormData({ title: '', amount: '', category: 'General', type: 'expense' });
+            window.dispatchEvent(new Event('dashboard_update'));
+        } catch (error) {
+            console.error('Failed to quick add', error);
+        }
     };
 
     return (

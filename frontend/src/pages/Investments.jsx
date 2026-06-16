@@ -3,7 +3,9 @@ import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Plus, Activity, Briefcase, PieChart, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { CurrencyContext } from '../context/CurrencyContext';
+import api from '../services/api';
 
 const data = [
   { name: 'Jan', value: 4000 },
@@ -17,29 +19,54 @@ const data = [
 
 const Investments = () => {
     const { currency } = useContext(CurrencyContext);
-    const [assets, setAssets] = useState(() => {
-        const saved = localStorage.getItem('mock_investments');
-        if (saved) return JSON.parse(saved);
-        return [];
-    });
+    const [assets, setAssets] = useState([]);
+    
+    useEffect(() => {
+        const fetchInvestments = async () => {
+            try {
+                const res = await api.get('/investments');
+                if (res.data?.data) {
+                    setAssets(res.data.data.map(i => ({
+                        id: i.id,
+                        name: i.investment_name,
+                        type: i.investment_type,
+                        amount: i.amount,
+                        return_rate: 5.5, // Mocked return rate since it's not in schema
+                        symbol: i.investment_type
+                    })));
+                }
+            } catch (err) {
+                console.error('Failed to fetch investments', err);
+            }
+        };
+        fetchInvestments();
+    }, []);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({ name: '', symbol: '', amount: '', return_rate: '', type: '' });
 
-    const handleAddAsset = (e) => {
+    const handleAddAsset = async (e) => {
         e.preventDefault();
-        const newAsset = {
-            id: Date.now(),
-            name: formData.name,
-            symbol: formData.symbol,
-            amount: parseFloat(formData.amount),
-            return_rate: parseFloat(formData.return_rate),
-            type: formData.type
-        };
-        const updatedAssets = [...assets, newAsset];
-        setAssets(updatedAssets);
-        localStorage.setItem('mock_investments', JSON.stringify(updatedAssets));
-        setIsModalOpen(false);
-        setFormData({ name: '', symbol: '', amount: '', return_rate: '', type: '' });
+        try {
+            const res = await api.post('/investments', {
+                investment_name: formData.name,
+                investment_type: formData.type || formData.symbol,
+                amount: parseFloat(formData.amount),
+                purchase_date: new Date().toISOString().split('T')[0]
+            });
+            const newAsset = {
+                id: res.data.data.id,
+                name: formData.name,
+                symbol: formData.symbol,
+                amount: parseFloat(formData.amount),
+                return_rate: parseFloat(formData.return_rate),
+                type: formData.type
+            };
+            setAssets([...assets, newAsset]);
+            setIsModalOpen(false);
+            setFormData({ name: '', symbol: '', amount: '', return_rate: '', type: '' });
+        } catch (error) {
+            console.error('Failed to add asset', error);
+        }
     };
 
     const totalPortfolioValue = assets.reduce((sum, asset) => sum + asset.amount, 0);

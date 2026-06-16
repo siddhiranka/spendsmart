@@ -1,5 +1,5 @@
 const { GoogleGenAI } = require('@google/genai');
-const pool = require('../config/db');
+const { getDB } = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 let ai;
@@ -9,11 +9,12 @@ if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_ap
 
 exports.getFinancialInsights = async (req, res) => {
     try {
+        const db = await getDB();
+        
         // Fetch user data for context
-        const [users] = await pool.query('SELECT income, savings_goal FROM users WHERE id = ?', [req.user.id]);
-        const user = users[0];
+        const user = await db.get('SELECT income, savings_goal FROM users WHERE id = ?', [req.user.id]);
 
-        const [expenses] = await pool.query('SELECT amount, category, date FROM expenses WHERE user_id = ? ORDER BY date DESC LIMIT 30', [req.user.id]);
+        const expenses = await db.all('SELECT amount, category, date FROM expenses WHERE user_id = ? ORDER BY date DESC LIMIT 30', [req.user.id]);
         
         // Prepare prompt
         const prompt = `

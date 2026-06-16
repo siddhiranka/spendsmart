@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const { getDB } = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addGoal = async (req, res) => {
@@ -9,12 +9,13 @@ exports.addGoal = async (req, res) => {
             return errorResponse(res, 400, 'Please provide goal name, target amount, and target date');
         }
 
-        const [result] = await pool.query(
+        const db = await getDB();
+        const result = await db.run(
             'INSERT INTO goals (user_id, goal_name, target_amount, target_date) VALUES (?, ?, ?, ?)',
             [req.user.id, goal_name, target_amount, target_date]
         );
 
-        return successResponse(res, 201, 'Goal added successfully', { id: result.insertId });
+        return successResponse(res, 201, 'Goal added successfully', { id: result.lastID });
     } catch (error) {
         console.error('Add Goal Error:', error);
         return errorResponse(res, 500, 'Server error while adding goal');
@@ -23,7 +24,8 @@ exports.addGoal = async (req, res) => {
 
 exports.getGoals = async (req, res) => {
     try {
-        const [goals] = await pool.query('SELECT * FROM goals WHERE user_id = ?', [req.user.id]);
+        const db = await getDB();
+        const goals = await db.all('SELECT * FROM goals WHERE user_id = ?', [req.user.id]);
         return successResponse(res, 200, 'Goals retrieved', goals);
     } catch (error) {
         console.error('Get Goals Error:', error);
@@ -36,12 +38,13 @@ exports.updateGoalProgress = async (req, res) => {
         const { id } = req.params;
         const { saved_amount } = req.body;
 
-        const [result] = await pool.query(
+        const db = await getDB();
+        const result = await db.run(
             'UPDATE goals SET saved_amount = ? WHERE id = ? AND user_id = ?',
             [saved_amount, id, req.user.id]
         );
 
-        if (result.affectedRows === 0) {
+        if (result.changes === 0) {
             return errorResponse(res, 404, 'Goal not found or unauthorized');
         }
 
@@ -55,9 +58,10 @@ exports.updateGoalProgress = async (req, res) => {
 exports.deleteGoal = async (req, res) => {
     try {
         const { id } = req.params;
-        const [result] = await pool.query('DELETE FROM goals WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const db = await getDB();
+        const result = await db.run('DELETE FROM goals WHERE id = ? AND user_id = ?', [id, req.user.id]);
 
-        if (result.affectedRows === 0) {
+        if (result.changes === 0) {
             return errorResponse(res, 404, 'Goal not found or unauthorized');
         }
 

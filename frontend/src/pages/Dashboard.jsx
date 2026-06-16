@@ -9,6 +9,7 @@ import {
 import { Wallet, TrendingUp, TrendingDown, Target, CreditCard, Activity } from 'lucide-react';
 
 import { CurrencyContext } from '../context/CurrencyContext';
+import api from '../services/api';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];
 
@@ -40,15 +41,37 @@ const Dashboard = () => {
         { name: 'Jun', income: 2390, expense: 3800 },
     ];
 
-    // Dynamic values from LocalStorage
-    const expenses = JSON.parse(localStorage.getItem('mock_expenses') || '[]');
-    const incomes = JSON.parse(localStorage.getItem('mock_income') || '[]');
-    const goals = JSON.parse(localStorage.getItem('mock_goals') || '[]');
-    const emis = JSON.parse(localStorage.getItem('mock_emis') || '[]');
+    const [expenses, setExpenses] = useState([]);
+    const [incomes, setIncomes] = useState([]);
+    const [goals, setGoals] = useState([]);
+    const [emis, setEmis] = useState([]);
 
-    const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
-    const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalSavings = goals.reduce((s, g) => s + g.current, 0);
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [expRes, incRes, goalRes, emiRes] = await Promise.all([
+                    api.get('/expenses'),
+                    api.get('/income'),
+                    api.get('/goals'),
+                    api.get('/emi')
+                ]);
+                if (expRes.data?.data) setExpenses(expRes.data.data);
+                if (incRes.data?.data) setIncomes(incRes.data.data);
+                if (goalRes.data?.data) setGoals(goalRes.data.data);
+                if (emiRes.data?.data) setEmis(emiRes.data.data);
+            } catch (error) {
+                console.error("Failed to fetch dashboard data", error);
+            }
+        };
+        fetchData();
+
+        window.addEventListener('dashboard_update', fetchData);
+        return () => window.removeEventListener('dashboard_update', fetchData);
+    }, []);
+
+    const totalIncome = incomes.reduce((s, i) => s + parseFloat(i.amount || 0), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const totalSavings = goals.reduce((s, g) => s + parseFloat(g.saved_amount || 0), 0);
     const activeEmisCount = emis.length;
 
     const SummaryCard = ({ title, amount, prefix = currency.symbol, icon: Icon, colorClass, delay }) => (

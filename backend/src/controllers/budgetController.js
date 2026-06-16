@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const { getDB } = require('../config/db');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.setBudget = async (req, res) => {
@@ -13,15 +13,15 @@ exports.setBudget = async (req, res) => {
         const wants_limit = income * 0.30;
         const savings_limit = income * 0.20;
 
-        // Use INSERT ... ON DUPLICATE KEY UPDATE or just DELETE then INSERT for simplicity
-        await pool.query('DELETE FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
+        const db = await getDB();
+        await db.run('DELETE FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
 
-        const [result] = await pool.query(
+        const result = await db.run(
             'INSERT INTO budgets (user_id, month, year, income, savings_target, needs_limit, wants_limit, savings_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [req.user.id, month, year, income, savings_target, needs_limit, wants_limit, savings_limit]
         );
 
-        return successResponse(res, 201, 'Budget set successfully', { id: result.insertId });
+        return successResponse(res, 201, 'Budget set successfully', { id: result.lastID });
     } catch (error) {
         console.error('Set Budget Error:', error);
         return errorResponse(res, 500, 'Server error while setting budget');
@@ -36,13 +36,14 @@ exports.getBudget = async (req, res) => {
             return errorResponse(res, 400, 'Please provide month and year');
         }
 
-        const [budgets] = await pool.query('SELECT * FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
+        const db = await getDB();
+        const budget = await db.get('SELECT * FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
 
-        if (budgets.length === 0) {
+        if (!budget) {
             return successResponse(res, 200, 'No budget found for this month', null);
         }
 
-        return successResponse(res, 200, 'Budget retrieved', budgets[0]);
+        return successResponse(res, 200, 'Budget retrieved', budget);
     } catch (error) {
         console.error('Get Budget Error:', error);
         return errorResponse(res, 500, 'Server error while retrieving budget');

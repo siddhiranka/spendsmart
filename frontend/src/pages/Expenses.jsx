@@ -18,41 +18,39 @@ const Expenses = () => {
     const [filterCategory, setFilterCategory] = useState('All');
     // Fetch data
     useEffect(() => {
-        const storedExpenses = JSON.parse(localStorage.getItem('mock_expenses'));
-        if (storedExpenses && storedExpenses.length > 0) {
-            setExpenses(storedExpenses);
-        } else if (storedExpenses) {
-            setExpenses([]);
-        } else {
-            // Default mock data if empty
-            const initialMock = [];
-            setExpenses(initialMock);
-            localStorage.setItem('mock_expenses', JSON.stringify(initialMock));
-        }
-        
-        // Attempt actual API call
-        api.get('/expenses').then(res => {
-            if(res.data?.data && res.data.data.length > 0) {
-                setExpenses(res.data.data);
-                localStorage.setItem('mock_expenses', JSON.stringify(res.data.data));
+        const fetchExpenses = async () => {
+            try {
+                const res = await api.get('/expenses');
+                if (res.data?.data) {
+                    setExpenses(res.data.data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch expenses', err);
             }
-        }).catch(err => console.log('DB not connected yet, using mock data.'));
+        };
+        fetchExpenses();
     }, []);
 
-    const handleAddExpense = (e) => {
+    const handleAddExpense = async (e) => {
         e.preventDefault();
-        const newExpense = { ...formData, id: Date.now(), amount: parseFloat(formData.amount) };
-        const updated = [newExpense, ...expenses];
-        setExpenses(updated);
-        localStorage.setItem('mock_expenses', JSON.stringify(updated));
-        setIsModalOpen(false);
-        setFormData({ title: '', amount: '', category: '', payment_method: '', date: '', notes: '' });
+        try {
+            const res = await api.post('/expenses', formData);
+            const newExpense = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
+            setExpenses([newExpense, ...expenses]);
+            setIsModalOpen(false);
+            setFormData({ title: '', amount: '', category: '', payment_method: '', date: '', notes: '' });
+        } catch (error) {
+            console.error('Failed to add expense', error);
+        }
     };
 
-    const handleDelete = (id) => {
-        const updated = expenses.filter(exp => exp.id !== id);
-        setExpenses(updated);
-        localStorage.setItem('mock_expenses', JSON.stringify(updated));
+    const handleDelete = async (id) => {
+        try {
+            await api.delete(`/expenses/${id}`);
+            setExpenses(expenses.filter(exp => exp.id !== id));
+        } catch (error) {
+            console.error('Failed to delete expense', error);
+        }
     };
 
     const handleSearchChange = (e) => {

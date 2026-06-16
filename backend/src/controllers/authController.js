@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const { getDB } = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
@@ -17,21 +17,22 @@ exports.registerUser = async (req, res) => {
             return errorResponse(res, 400, 'Please add all fields');
         }
 
-        const [existingUsers] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-        if (existingUsers.length > 0) {
+        const db = await getDB();
+        const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
+        if (existingUser) {
             return errorResponse(res, 400, 'User already exists');
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const [result] = await pool.query(
+        const result = await db.run(
             'INSERT INTO users (name, email, password, income, savings_goal) VALUES (?, ?, ?, ?, ?)',
             [name, email, hashedPassword, income || 0, savings_goal || 0]
         );
 
         const user = {
-            id: result.insertId,
+            id: result.lastID,
             name,
             email,
             income: income || 0,
@@ -58,13 +59,12 @@ exports.loginUser = async (req, res) => {
             return errorResponse(res, 400, 'Please add all fields');
         }
 
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const db = await getDB();
+        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
         
-        if (users.length === 0) {
+        if (!user) {
             return errorResponse(res, 401, 'Invalid credentials');
         }
-
-        const user = users[0];
 
         const isMatch = await bcrypt.compare(password, user.password);
 
@@ -91,13 +91,14 @@ exports.loginUser = async (req, res) => {
 
 exports.getUserProfile = async (req, res) => {
     try {
-        const [users] = await pool.query('SELECT id, name, email, income, savings_goal, role, created_at FROM users WHERE id = ?', [req.user.id]);
+        const db = await getDB();
+        const user = await db.get('SELECT id, name, email, income, savings_goal, role, created_at FROM users WHERE id = ?', [req.user.id]);
         
-        if (users.length === 0) {
+        if (!user) {
             return errorResponse(res, 404, 'User not found');
         }
 
-        return successResponse(res, 200, 'User profile retrieved', users[0]);
+        return successResponse(res, 200, 'User profile retrieved', user);
     } catch (error) {
         console.error('Profile Error:', error);
         return errorResponse(res, 500, 'Server error retrieving profile');

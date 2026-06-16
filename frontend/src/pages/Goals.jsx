@@ -2,32 +2,52 @@ import React, { useState, useContext } from 'react';
 import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Plus, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Target, Plus, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
 import { CurrencyContext } from '../context/CurrencyContext';
+import api from '../services/api';
 
 const Goals = () => {
     const { currency } = useContext(CurrencyContext);
-    const [goals, setGoals] = useState(() => {
-        const saved = localStorage.getItem('mock_goals');
-        if (saved) return JSON.parse(saved);
-        return [];
-    });
+    const [goals, setGoals] = useState([]);
+    
+    useEffect(() => {
+        const fetchGoals = async () => {
+            try {
+                const res = await api.get('/goals');
+                if (res.data?.data) {
+                    setGoals(res.data.data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch goals', err);
+            }
+        };
+        fetchGoals();
+    }, []);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({ title: '', target: '', current: '', deadline: '' });
 
-    const handleAddGoal = (e) => {
+    const handleAddGoal = async (e) => {
         e.preventDefault();
-        const newGoal = {
-            id: Date.now(),
-            title: formData.title,
-            target: parseFloat(formData.target),
-            current: parseFloat(formData.current) || 0,
-            deadline: formData.deadline
-        };
-        const updatedGoals = [...goals, newGoal];
-        setGoals(updatedGoals);
-        localStorage.setItem('mock_goals', JSON.stringify(updatedGoals));
-        setIsModalOpen(false);
-        setFormData({ title: '', target: '', current: '', deadline: '' });
+        try {
+            const res = await api.post('/goals', {
+                goal_name: formData.title,
+                target_amount: parseFloat(formData.target),
+                target_date: formData.deadline
+            });
+            const newGoal = {
+                id: res.data.data.id,
+                title: formData.title,
+                target: parseFloat(formData.target),
+                current: parseFloat(formData.current) || 0,
+                deadline: formData.deadline
+            };
+            setGoals([...goals, newGoal]);
+            setIsModalOpen(false);
+            setFormData({ title: '', target: '', current: '', deadline: '' });
+        } catch (error) {
+            console.error('Failed to add goal', error);
+        }
     };
 
     return (

@@ -1,111 +1,107 @@
--- SpendSmart Database Schema
-
-CREATE DATABASE IF NOT EXISTS spendsmart;
-USE spendsmart;
+-- SpendSmart Database Schema for SQLite
 
 CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    income DECIMAL(15, 2) DEFAULT 0.00,
-    savings_goal DECIMAL(15, 2) DEFAULT 0.00,
-    role ENUM('user', 'admin') DEFAULT 'user',
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    income REAL DEFAULT 0.00,
+    savings_goal REAL DEFAULT 0.00,
+    role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    amount DECIMAL(15, 2) NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    payment_method VARCHAR(100),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    amount REAL NOT NULL,
+    category TEXT NOT NULL,
+    payment_method TEXT,
     date DATE NOT NULL,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Index for querying expenses by user and date ranges
-CREATE INDEX idx_expenses_user_date ON expenses(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);
 
 CREATE TABLE IF NOT EXISTS income (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    source VARCHAR(100) NOT NULL,
-    amount DECIMAL(15, 2) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    amount REAL NOT NULL,
     date DATE NOT NULL,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_income_user_date ON income(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_income_user_date ON income(user_id, date);
 
 CREATE TABLE IF NOT EXISTS emi (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    loan_name VARCHAR(255) NOT NULL,
-    principal DECIMAL(15, 2) NOT NULL,
-    interest DECIMAL(5, 2) NOT NULL, -- Annual interest rate percentage
-    tenure INT NOT NULL, -- in months
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    loan_name TEXT NOT NULL,
+    principal REAL NOT NULL,
+    interest REAL NOT NULL, 
+    tenure INTEGER NOT NULL, 
     start_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS goals (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    goal_name VARCHAR(255) NOT NULL,
-    target_amount DECIMAL(15, 2) NOT NULL,
-    saved_amount DECIMAL(15, 2) DEFAULT 0.00,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    goal_name TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    saved_amount REAL DEFAULT 0.00,
     target_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS investments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    investment_name VARCHAR(255) NOT NULL,
-    investment_type VARCHAR(100) NOT NULL,
-    amount DECIMAL(15, 2) NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    investment_name TEXT NOT NULL,
+    investment_type TEXT NOT NULL,
+    amount REAL NOT NULL,
     purchase_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS budgets (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    month INT NOT NULL,
-    year INT NOT NULL,
-    income DECIMAL(15, 2) NOT NULL,
-    savings_target DECIMAL(15, 2) NOT NULL,
-    needs_limit DECIMAL(15, 2) NOT NULL, -- 50%
-    wants_limit DECIMAL(15, 2) NOT NULL, -- 30%
-    savings_limit DECIMAL(15, 2) NOT NULL, -- 20%
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    income REAL NOT NULL,
+    savings_target REAL NOT NULL,
+    needs_limit REAL NOT NULL, 
+    wants_limit REAL NOT NULL, 
+    savings_limit REAL NOT NULL, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_user_month_year (user_id, month, year)
+    UNIQUE (user_id, month, year)
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
     message TEXT NOT NULL,
-    is_read BOOLEAN DEFAULT FALSE,
+    is_read BOOLEAN DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read);
