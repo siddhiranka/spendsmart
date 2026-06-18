@@ -1,4 +1,4 @@
-const sqlite3 = require('@libsql/sqlite3');
+const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const fs = require('fs');
 const path = require('path');

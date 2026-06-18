@@ -15,14 +15,14 @@ app.use(morgan('dev'));
 
 // Routes
 const apiRouter = express.Router();
-apiRouter.use('/auth', require('./routes/authRoutes'));
-apiRouter.use('/expenses', require('./routes/expenseRoutes'));
-apiRouter.use('/income', require('./routes/incomeRoutes'));
-apiRouter.use('/budgets', require('./routes/budgetRoutes'));
-apiRouter.use('/emi', require('./routes/emiRoutes'));
-apiRouter.use('/goals', require('./routes/goalRoutes'));
-apiRouter.use('/investments', require('./routes/investmentRoutes'));
-apiRouter.use('/ai', require('./routes/aiRoutes'));
+// apiRouter.use('/auth', require('./routes/authRoutes'));
+// apiRouter.use('/expenses', require('./routes/expenseRoutes'));
+// apiRouter.use('/income', require('./routes/incomeRoutes'));
+// apiRouter.use('/budgets', require('./routes/budgetRoutes'));
+// apiRouter.use('/emi', require('./routes/emiRoutes'));
+// apiRouter.use('/goals', require('./routes/goalRoutes'));
+// apiRouter.use('/investments', require('./routes/investmentRoutes'));
+// apiRouter.use('/ai', require('./routes/aiRoutes'));
 
 app.use('/api', apiRouter);
 app.use('/_/backend/api', apiRouter);
