@@ -46,8 +46,8 @@ exports.registerUser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Register Error:', error);
-        return errorResponse(res, 500, 'Server error during registration');
+        console.error('Registration error:', error);
+        return errorResponse(res, 500, 'Server error during registration', error.toString());
     }
 };
 

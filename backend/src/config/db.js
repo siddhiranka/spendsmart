@@ -9,7 +9,7 @@ async function getDB() {
     const sqlite3 = require('sqlite3');
     const { open } = require('sqlite');
 
-    const dbPath = process.env.VERCEL ? '/tmp/database.sqlite' : path.join(__dirname, '../../database.sqlite');
+    const dbPath = process.env.VERCEL ? 'file:/tmp/database.sqlite' : `file:${path.join(__dirname, '../../database.sqlite')}`;
     dbInstance = await open({
         filename: dbPath,
         driver: sqlite3.Database
