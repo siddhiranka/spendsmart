@@ -2,7 +2,6 @@ import React, { useState, useContext } from 'react';
 import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Plus, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
-import { Target, Plus, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
 import { CurrencyContext } from '../context/CurrencyContext';
 import api from '../services/api';
 
