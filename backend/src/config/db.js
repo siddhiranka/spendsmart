@@ -1,3 +1,4 @@
+const { createClient } = require('@libsql/client');
 const fs = require('fs');
 const path = require('path');
 
@@ -6,14 +7,24 @@ let dbInstance = null;
 async function getDB() {
     if (dbInstance) return dbInstance;
 
-    const sqlite3 = require('sqlite3');
-    const { open } = require('sqlite');
+    const dbPath = process.env.VERCEL ? 'file:/tmp/database.sqlite' : `file:${path.join(__dirname, '../../database.sqlite')}`;
+    const client = createClient({ url: dbPath });
 
-    const dbPath = process.env.VERCEL ? '/tmp/database.sqlite' : path.join(__dirname, '../../database.sqlite');
-    dbInstance = await open({
-        filename: dbPath,
-        driver: sqlite3.Database
-    });
+    dbInstance = {
+        exec: async (sql) => client.execute(sql),
+        run: async (sql, params) => {
+            const res = await client.execute({ sql, args: params || [] });
+            return { lastID: res.lastInsertRowid ? Number(res.lastInsertRowid) : undefined, changes: res.rowsAffected };
+        },
+        get: async (sql, params) => {
+            const res = await client.execute({ sql, args: params || [] });
+            return res.rows.length > 0 ? res.rows[0] : undefined;
+        },
+        all: async (sql, params) => {
+            const res = await client.execute({ sql, args: params || [] });
+            return res.rows;
+        }
+    };
 
     // Enable foreign keys
     await dbInstance.exec('PRAGMA foreign_keys = ON;');
