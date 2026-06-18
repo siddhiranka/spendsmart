@@ -6,7 +6,7 @@ let dbInstance = null;
 async function getDB() {
     if (dbInstance) return dbInstance;
 
-    const sqlite3 = require('sqlite3');
+    const sqlite3 = require('@libsql/sqlite3');
     const { open } = require('sqlite');
 
     const dbPath = process.env.VERCEL ? '/tmp/database.sqlite' : path.join(__dirname, '../../database.sqlite');
