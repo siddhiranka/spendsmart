@@ -10,5 +10,10 @@
       "routePrefix": "/_/backend",
       "entrypoint": "src/index.js"
     }
+  },
+  "functions": {
+    "backend/src/index.js": {
+      "includeFiles": "backend/src/database/*.sql"
+    }
   }
 }
