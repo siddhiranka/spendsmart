@@ -8,8 +8,9 @@ let dbInstance = null;
 async function getDB() {
     if (dbInstance) return dbInstance;
 
+    const dbPath = process.env.VERCEL ? '/tmp/database.sqlite' : path.join(__dirname, '../../database.sqlite');
     dbInstance = await open({
-        filename: path.join(__dirname, '../../database.sqlite'),
+        filename: dbPath,
         driver: sqlite3.Database
     });
 
