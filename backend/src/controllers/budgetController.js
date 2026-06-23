@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const Budget = require('../models/Budget');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.setBudget = async (req, res) => {
@@ -13,15 +13,20 @@ exports.setBudget = async (req, res) => {
         const wants_limit = income * 0.30;
         const savings_limit = income * 0.20;
 
-        const db = await getDB();
-        await db.run('DELETE FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
+        await Budget.findOneAndDelete({ user_id: req.user.id, month, year });
 
-        const result = await db.run(
-            'INSERT INTO budgets (user_id, month, year, income, savings_target, needs_limit, wants_limit, savings_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [req.user.id, month, year, income, savings_target, needs_limit, wants_limit, savings_limit]
-        );
+        const budget = await Budget.create({
+            user_id: req.user.id,
+            month,
+            year,
+            income,
+            savings_target,
+            needs_limit,
+            wants_limit,
+            savings_limit
+        });
 
-        return successResponse(res, 201, 'Budget set successfully', { id: result.lastID });
+        return successResponse(res, 201, 'Budget set successfully', { id: budget.id });
     } catch (error) {
         console.error('Set Budget Error:', error);
         return errorResponse(res, 500, 'Server error while setting budget');
@@ -36,8 +41,7 @@ exports.getBudget = async (req, res) => {
             return errorResponse(res, 400, 'Please provide month and year');
         }
 
-        const db = await getDB();
-        const budget = await db.get('SELECT * FROM budgets WHERE user_id = ? AND month = ? AND year = ?', [req.user.id, month, year]);
+        const budget = await Budget.findOne({ user_id: req.user.id, month, year });
 
         if (!budget) {
             return successResponse(res, 200, 'No budget found for this month', null);

@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const Goal = require('../models/Goal');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addGoal = async (req, res) => {
@@ -9,13 +9,14 @@ exports.addGoal = async (req, res) => {
             return errorResponse(res, 400, 'Please provide goal name, target amount, and target date');
         }
 
-        const db = await getDB();
-        const result = await db.run(
-            'INSERT INTO goals (user_id, goal_name, target_amount, target_date) VALUES (?, ?, ?, ?)',
-            [req.user.id, goal_name, target_amount, target_date]
-        );
+        const goal = await Goal.create({
+            user_id: req.user.id,
+            goal_name,
+            target_amount,
+            target_date
+        });
 
-        return successResponse(res, 201, 'Goal added successfully', { id: result.lastID });
+        return successResponse(res, 201, 'Goal added successfully', { id: goal.id });
     } catch (error) {
         console.error('Add Goal Error:', error);
         return errorResponse(res, 500, 'Server error while adding goal');
@@ -24,8 +25,7 @@ exports.addGoal = async (req, res) => {
 
 exports.getGoals = async (req, res) => {
     try {
-        const db = await getDB();
-        const goals = await db.all('SELECT * FROM goals WHERE user_id = ?', [req.user.id]);
+        const goals = await Goal.find({ user_id: req.user.id });
         return successResponse(res, 200, 'Goals retrieved', goals);
     } catch (error) {
         console.error('Get Goals Error:', error);
@@ -38,13 +38,13 @@ exports.updateGoalProgress = async (req, res) => {
         const { id } = req.params;
         const { saved_amount } = req.body;
 
-        const db = await getDB();
-        const result = await db.run(
-            'UPDATE goals SET saved_amount = ? WHERE id = ? AND user_id = ?',
-            [saved_amount, id, req.user.id]
+        const goal = await Goal.findOneAndUpdate(
+            { _id: id, user_id: req.user.id },
+            { saved_amount },
+            { new: true }
         );
 
-        if (result.changes === 0) {
+        if (!goal) {
             return errorResponse(res, 404, 'Goal not found or unauthorized');
         }
 
@@ -58,10 +58,9 @@ exports.updateGoalProgress = async (req, res) => {
 exports.deleteGoal = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await getDB();
-        const result = await db.run('DELETE FROM goals WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const goal = await Goal.findOneAndDelete({ _id: id, user_id: req.user.id });
 
-        if (result.changes === 0) {
+        if (!goal) {
             return errorResponse(res, 404, 'Goal not found or unauthorized');
         }
 

@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const Expense = require('../models/Expense');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addExpense = async (req, res) => {
@@ -9,13 +9,17 @@ exports.addExpense = async (req, res) => {
             return errorResponse(res, 400, 'Please provide title, amount, category, and date');
         }
 
-        const db = await getDB();
-        const result = await db.run(
-            'INSERT INTO expenses (user_id, title, amount, category, payment_method, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.user.id, title, amount, category, payment_method, date, notes]
-        );
+        const expense = await Expense.create({
+            user_id: req.user.id,
+            title,
+            amount,
+            category,
+            payment_method,
+            date,
+            notes
+        });
 
-        return successResponse(res, 201, 'Expense added successfully', { id: result.lastID });
+        return successResponse(res, 201, 'Expense added successfully', { id: expense.id });
     } catch (error) {
         console.error('Add Expense Error:', error);
         return errorResponse(res, 500, 'Server error while adding expense');
@@ -25,27 +29,21 @@ exports.addExpense = async (req, res) => {
 exports.getExpenses = async (req, res) => {
     try {
         const { startDate, endDate, category, sortBy, order } = req.query;
-        let query = 'SELECT * FROM expenses WHERE user_id = ?';
-        const params = [req.user.id];
+        let query = { user_id: req.user.id };
 
         if (startDate && endDate) {
-            query += ' AND date BETWEEN ? AND ?';
-            params.push(startDate, endDate);
+            query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
         }
 
         if (category) {
-            query += ' AND category = ?';
-            params.push(category);
+            query.category = category;
         }
 
         const validSortColumns = ['date', 'amount'];
         const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'date';
-        const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+        const sortOrder = order === 'asc' ? 1 : -1;
 
-        query += ` ORDER BY ${sortColumn} ${sortOrder}`;
-
-        const db = await getDB();
-        const expenses = await db.all(query, params);
+        const expenses = await Expense.find(query).sort({ [sortColumn]: sortOrder });
         return successResponse(res, 200, 'Expenses retrieved', expenses);
     } catch (error) {
         console.error('Get Expenses Error:', error);
@@ -58,13 +56,13 @@ exports.updateExpense = async (req, res) => {
         const { id } = req.params;
         const { title, amount, category, payment_method, date, notes } = req.body;
 
-        const db = await getDB();
-        const result = await db.run(
-            'UPDATE expenses SET title = ?, amount = ?, category = ?, payment_method = ?, date = ?, notes = ? WHERE id = ? AND user_id = ?',
-            [title, amount, category, payment_method, date, notes, id, req.user.id]
+        const expense = await Expense.findOneAndUpdate(
+            { _id: id, user_id: req.user.id },
+            { title, amount, category, payment_method, date, notes },
+            { new: true }
         );
 
-        if (result.changes === 0) {
+        if (!expense) {
             return errorResponse(res, 404, 'Expense not found or unauthorized');
         }
 
@@ -78,10 +76,9 @@ exports.updateExpense = async (req, res) => {
 exports.deleteExpense = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await getDB();
-        const result = await db.run('DELETE FROM expenses WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const expense = await Expense.findOneAndDelete({ _id: id, user_id: req.user.id });
 
-        if (result.changes === 0) {
+        if (!expense) {
             return errorResponse(res, 404, 'Expense not found or unauthorized');
         }
 

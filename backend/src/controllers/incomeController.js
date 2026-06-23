@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const Income = require('../models/Income');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addIncome = async (req, res) => {
@@ -9,13 +9,15 @@ exports.addIncome = async (req, res) => {
             return errorResponse(res, 400, 'Please provide source, amount, and date');
         }
 
-        const db = await getDB();
-        const result = await db.run(
-            'INSERT INTO income (user_id, source, amount, date, notes) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, source, amount, date, notes]
-        );
+        const income = await Income.create({
+            user_id: req.user.id,
+            source,
+            amount,
+            date,
+            notes
+        });
 
-        return successResponse(res, 201, 'Income added successfully', { id: result.lastID });
+        return successResponse(res, 201, 'Income added successfully', { id: income.id });
     } catch (error) {
         console.error('Add Income Error:', error);
         return errorResponse(res, 500, 'Server error while adding income');
@@ -25,27 +27,21 @@ exports.addIncome = async (req, res) => {
 exports.getIncome = async (req, res) => {
     try {
         const { startDate, endDate, source, sortBy, order } = req.query;
-        let query = 'SELECT * FROM income WHERE user_id = ?';
-        const params = [req.user.id];
+        let query = { user_id: req.user.id };
 
         if (startDate && endDate) {
-            query += ' AND date BETWEEN ? AND ?';
-            params.push(startDate, endDate);
+            query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
         }
 
         if (source) {
-            query += ' AND source = ?';
-            params.push(source);
+            query.source = source;
         }
 
         const validSortColumns = ['date', 'amount'];
         const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'date';
-        const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+        const sortOrder = order === 'asc' ? 1 : -1;
 
-        query += ` ORDER BY ${sortColumn} ${sortOrder}`;
-
-        const db = await getDB();
-        const income = await db.all(query, params);
+        const income = await Income.find(query).sort({ [sortColumn]: sortOrder });
         return successResponse(res, 200, 'Income retrieved', income);
     } catch (error) {
         console.error('Get Income Error:', error);
@@ -58,13 +54,13 @@ exports.updateIncome = async (req, res) => {
         const { id } = req.params;
         const { source, amount, date, notes } = req.body;
 
-        const db = await getDB();
-        const result = await db.run(
-            'UPDATE income SET source = ?, amount = ?, date = ?, notes = ? WHERE id = ? AND user_id = ?',
-            [source, amount, date, notes, id, req.user.id]
+        const income = await Income.findOneAndUpdate(
+            { _id: id, user_id: req.user.id },
+            { source, amount, date, notes },
+            { new: true }
         );
 
-        if (result.changes === 0) {
+        if (!income) {
             return errorResponse(res, 404, 'Income not found or unauthorized');
         }
 
@@ -78,10 +74,9 @@ exports.updateIncome = async (req, res) => {
 exports.deleteIncome = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await getDB();
-        const result = await db.run('DELETE FROM income WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const income = await Income.findOneAndDelete({ _id: id, user_id: req.user.id });
 
-        if (result.changes === 0) {
+        if (!income) {
             return errorResponse(res, 404, 'Income not found or unauthorized');
         }
 

@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
@@ -17,8 +17,7 @@ exports.registerUser = async (req, res) => {
             return errorResponse(res, 400, 'Please add all fields');
         }
 
-        const db = await getDB();
-        const existingUser = await db.get('SELECT id FROM users WHERE email = ?', [email]);
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
             return errorResponse(res, 400, 'User already exists');
         }
@@ -26,22 +25,24 @@ exports.registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const result = await db.run(
-            'INSERT INTO users (name, email, password, income, savings_goal) VALUES (?, ?, ?, ?, ?)',
-            [name, email, hashedPassword, income || 0, savings_goal || 0]
-        );
-
-        const user = {
-            id: result.lastID,
+        const user = await User.create({
             name,
             email,
+            password: hashedPassword,
             income: income || 0,
             savings_goal: savings_goal || 0,
             role: 'user'
-        };
+        });
 
         return successResponse(res, 201, 'User registered successfully', {
-            user,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                income: user.income,
+                savings_goal: user.savings_goal,
+                role: user.role
+            },
             token: generateToken(user.id, user.role)
         });
 
@@ -59,8 +60,7 @@ exports.loginUser = async (req, res) => {
             return errorResponse(res, 400, 'Please add all fields');
         }
 
-        const db = await getDB();
-        const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+        const user = await User.findOne({ email });
         
         if (!user) {
             return errorResponse(res, 401, 'Invalid credentials');
@@ -91,8 +91,7 @@ exports.loginUser = async (req, res) => {
 
 exports.getUserProfile = async (req, res) => {
     try {
-        const db = await getDB();
-        const user = await db.get('SELECT id, name, email, income, savings_goal, role, created_at FROM users WHERE id = ?', [req.user.id]);
+        const user = await User.findById(req.user.id).select('-password');
         
         if (!user) {
             return errorResponse(res, 404, 'User not found');

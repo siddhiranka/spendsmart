@@ -1,4 +1,4 @@
-const { getDB } = require('../config/db');
+const Investment = require('../models/Investment');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.addInvestment = async (req, res) => {
@@ -9,13 +9,15 @@ exports.addInvestment = async (req, res) => {
             return errorResponse(res, 400, 'Please provide all investment fields');
         }
 
-        const db = await getDB();
-        const result = await db.run(
-            'INSERT INTO investments (user_id, investment_name, investment_type, amount, purchase_date) VALUES (?, ?, ?, ?, ?)',
-            [req.user.id, investment_name, investment_type, amount, purchase_date]
-        );
+        const investment = await Investment.create({
+            user_id: req.user.id,
+            investment_name,
+            investment_type,
+            amount,
+            purchase_date
+        });
 
-        return successResponse(res, 201, 'Investment added successfully', { id: result.lastID });
+        return successResponse(res, 201, 'Investment added successfully', { id: investment.id });
     } catch (error) {
         console.error('Add Investment Error:', error);
         return errorResponse(res, 500, 'Server error while adding investment');
@@ -24,8 +26,7 @@ exports.addInvestment = async (req, res) => {
 
 exports.getInvestments = async (req, res) => {
     try {
-        const db = await getDB();
-        const investments = await db.all('SELECT * FROM investments WHERE user_id = ?', [req.user.id]);
+        const investments = await Investment.find({ user_id: req.user.id });
         return successResponse(res, 200, 'Investments retrieved', investments);
     } catch (error) {
         console.error('Get Investments Error:', error);
@@ -36,10 +37,9 @@ exports.getInvestments = async (req, res) => {
 exports.deleteInvestment = async (req, res) => {
     try {
         const { id } = req.params;
-        const db = await getDB();
-        const result = await db.run('DELETE FROM investments WHERE id = ? AND user_id = ?', [id, req.user.id]);
+        const investment = await Investment.findOneAndDelete({ _id: id, user_id: req.user.id });
 
-        if (result.changes === 0) {
+        if (!investment) {
             return errorResponse(res, 404, 'Investment not found or unauthorized');
         }
 
