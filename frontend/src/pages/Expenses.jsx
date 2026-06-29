@@ -11,6 +11,7 @@ const Expenses = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [expenses, setExpenses] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({ title: '', amount: '', category: '', payment_method: '', date: '', notes: '' });
     
     // Search and Filter State
@@ -34,14 +35,38 @@ const Expenses = () => {
     const handleAddExpense = async (e) => {
         e.preventDefault();
         try {
-            const res = await api.post('/expenses', formData);
-            const newExpense = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
-            setExpenses([newExpense, ...expenses]);
+            if (editingId) {
+                await api.put(`/expenses/${editingId}`, formData);
+                const updatedExpense = { ...formData, id: editingId, amount: parseFloat(formData.amount) };
+                setExpenses(expenses.map(exp => exp.id === editingId ? updatedExpense : exp));
+            } else {
+                const res = await api.post('/expenses', formData);
+                const newExpense = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
+                setExpenses([newExpense, ...expenses]);
+            }
             setIsModalOpen(false);
+            setEditingId(null);
             setFormData({ title: '', amount: '', category: '', payment_method: '', date: '', notes: '' });
         } catch (error) {
-            console.error('Failed to add expense', error);
+            console.error('Failed to save expense', error);
         }
+    };
+
+    const handleEditClick = (expense) => {
+        let formattedDate = expense.date;
+        if (formattedDate && formattedDate.includes('T')) {
+            formattedDate = formattedDate.split('T')[0];
+        }
+        setFormData({
+            title: expense.title,
+            amount: expense.amount,
+            category: expense.category,
+            payment_method: expense.payment_method,
+            date: formattedDate,
+            notes: expense.notes || ''
+        });
+        setEditingId(expense.id);
+        setIsModalOpen(true);
     };
 
     const handleDelete = async (id) => {
@@ -104,7 +129,11 @@ const Expenses = () => {
                     <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={() => {
+                            setEditingId(null);
+                            setFormData({ title: '', amount: '', category: '', payment_method: '', date: '', notes: '' });
+                            setIsModalOpen(true);
+                        }}
                         className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-500/30 transition-all"
                     >
                         <Plus size={20} />
@@ -155,7 +184,7 @@ const Expenses = () => {
                                         </td>
                                         <td className="p-4 pr-6">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                                <button onClick={() => handleEditClick(expense)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button onClick={() => handleDelete(expense.id)} className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
@@ -190,7 +219,7 @@ const Expenses = () => {
                             className="bg-[var(--surface-color)] rounded-2xl border border-[var(--border-color)] shadow-2xl w-full max-w-md overflow-hidden"
                         >
                             <div className="p-6 border-b border-[var(--border-color)]">
-                                <h3 className="text-xl font-bold text-[var(--text-color)]">Add New Expense</h3>
+                                <h3 className="text-xl font-bold text-[var(--text-color)]">{editingId ? 'Edit Expense' : 'Add New Expense'}</h3>
                             </div>
                             <form onSubmit={handleAddExpense} className="p-6 space-y-4">
                                 <div>
@@ -236,7 +265,7 @@ const Expenses = () => {
                                         Cancel
                                     </button>
                                     <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30">
-                                        Save Expense
+                                        {editingId ? 'Update Expense' : 'Save Expense'}
                                     </button>
                                 </div>
                             </form>

@@ -11,6 +11,7 @@ const Income = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [income, setIncome] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({ source: '', amount: '', date: '', notes: '' });
 
     const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
@@ -32,14 +33,36 @@ const Income = () => {
     const handleAddIncome = async (e) => {
         e.preventDefault();
         try {
-            const res = await api.post('/income', formData);
-            const newIncome = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
-            setIncome([newIncome, ...income]);
+            if (editingId) {
+                await api.put(`/income/${editingId}`, formData);
+                const updatedIncome = { ...formData, id: editingId, amount: parseFloat(formData.amount) };
+                setIncome(income.map(inc => inc.id === editingId ? updatedIncome : inc));
+            } else {
+                const res = await api.post('/income', formData);
+                const newIncome = { ...formData, id: res.data.data.id, amount: parseFloat(formData.amount) };
+                setIncome([newIncome, ...income]);
+            }
             setIsModalOpen(false);
+            setEditingId(null);
             setFormData({ source: '', amount: '', date: '', notes: '' });
         } catch (error) {
-            console.error('Failed to add income', error);
+            console.error('Failed to save income', error);
         }
+    };
+
+    const handleEditClick = (inc) => {
+        let formattedDate = inc.date;
+        if (formattedDate && formattedDate.includes('T')) {
+            formattedDate = formattedDate.split('T')[0];
+        }
+        setFormData({
+            source: inc.source,
+            amount: inc.amount,
+            date: formattedDate,
+            notes: inc.notes || ''
+        });
+        setEditingId(inc.id);
+        setIsModalOpen(true);
     };
 
     const handleDelete = async (id) => {
@@ -85,7 +108,11 @@ const Income = () => {
                     <motion.button 
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={() => {
+                            setEditingId(null);
+                            setFormData({ source: '', amount: '', date: '', notes: '' });
+                            setIsModalOpen(true);
+                        }}
                         className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl shadow-lg shadow-green-500/30 transition-all"
                     >
                         <Plus size={20} />
@@ -132,7 +159,7 @@ const Income = () => {
                                         </td>
                                         <td className="p-4 pr-6">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button className="p-2 text-gray-400 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20">
+                                                <button onClick={() => handleEditClick(inc)} className="p-2 text-gray-400 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20">
                                                     <Edit2 size={16} />
                                                 </button>
                                                 <button onClick={() => handleDelete(inc.id)} className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
@@ -166,7 +193,7 @@ const Income = () => {
                             className="bg-[var(--surface-color)] rounded-2xl border border-[var(--border-color)] shadow-2xl w-full max-w-md overflow-hidden"
                         >
                             <div className="p-6 border-b border-[var(--border-color)]">
-                                <h3 className="text-xl font-bold text-[var(--text-color)]">Add New Income</h3>
+                                <h3 className="text-xl font-bold text-[var(--text-color)]">{editingId ? 'Edit Income' : 'Add New Income'}</h3>
                             </div>
                             <form onSubmit={handleAddIncome} className="p-6 space-y-4">
                                 <div>
@@ -195,7 +222,7 @@ const Income = () => {
                                         Cancel
                                     </button>
                                     <button type="submit" className="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors shadow-lg shadow-green-500/30">
-                                        Save Income
+                                        {editingId ? 'Update Income' : 'Save Income'}
                                     </button>
                                 </div>
                             </form>

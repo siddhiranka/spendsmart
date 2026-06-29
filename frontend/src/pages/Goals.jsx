@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Plus, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -14,7 +14,13 @@ const Goals = () => {
             try {
                 const res = await api.get('/goals');
                 if (res.data?.data) {
-                    setGoals(res.data.data);
+                    setGoals(res.data.data.map(g => ({
+                        id: g.id || g._id,
+                        title: g.goal_name,
+                        target: g.target_amount,
+                        current: g.saved_amount || 0,
+                        deadline: new Date(g.target_date).toISOString().split('T')[0]
+                    })));
                 }
             } catch (err) {
                 console.error('Failed to fetch goals', err);

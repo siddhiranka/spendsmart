@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Layout from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Plus, Activity, Briefcase, PieChart, ArrowUpRight, ArrowDownRight } from 'lucide-react';
